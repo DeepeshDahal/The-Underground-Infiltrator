@@ -1,0 +1,2368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GORKHALI INFILTRATION - 4 LEVELS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            background: #1a1a1a; 
+            font-family: 'Courier New', monospace;
+            user-select: none;
+        }
+        #game-container { width: 100vw; height: 100vh; }
+        
+        .hud { position: fixed; z-index: 100; pointer-events: none; }
+        .hud-top-left { top: 20px; left: 20px; }
+        .hud-top-right { top: 20px; right: 20px; text-align: right; }
+        
+        .panel {
+            background: rgba(30,25,20,0.9);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(100,80,60,0.5);
+        }
+        
+        .stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
+        
+        .stat-bar {
+            width: 100px;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .stat-fill { height: 100%; transition: width 0.2s; }
+        .stat-text { color: #b0a090; font-size: 12px; }
+        
+        .crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            pointer-events: none;
+        }
+        
+        .crosshair-line { position: absolute; background: rgba(255,80,80,0.9); }
+        .crosshair-h { width: 20px; height: 2px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .crosshair-v { width: 2px; height: 20px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        
+        .menu-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,12,10,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+        }
+        
+        .menu-title {
+            font-size: 52px;
+            font-weight: bold;
+            color: #cc5533;
+            text-shadow: 0 0 40px rgba(200,80,50,0.5);
+        }
+        
+        .menu-subtitle {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aa8844;
+            text-shadow: 0 0 30px rgba(170,130,70,0.3);
+            margin-bottom: 16px;
+        }
+        
+        .menu-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 40px;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .menu-btn {
+            padding: 14px 40px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            pointer-events: auto;
+            background: #8b4422;
+            color: #e0d0c0;
+        }
+        
+        .menu-btn:hover { transform: scale(1.05); }
+        
+        .level-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 300;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .level-notification.show { opacity: 1; }
+        
+        .level-number {
+            font-size: 64px;
+            font-weight: bold;
+            color: #aa8844;
+            text-shadow: 0 0 40px rgba(170,130,70,0.5);
+            animation: pulse 1s infinite;
+        }
+        
+        .level-name { font-size: 22px; color: #a09080; margin-top: 8px; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        
+        .damage-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 120px;
+            height: 120px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        
+        .damage-indicator.show { opacity: 1; }
+        
+        .damage-arrow {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 20px solid #ff4444;
+        }
+        
+        .door-prompt {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 200;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .door-prompt.show { display: block; }
+        
+        .door-prompt-text {
+            background: rgba(60,80,60,0.4);
+            color: #88aa88;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 2px solid #557755;
+            animation: pulse 1s infinite;
+        }
+        
+        .room-cleared {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(60,80,60,0.4);
+            color: #88aa88;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 200;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .room-cleared.show { display: block; }
+        
+        .enemies-counter {
+            position: fixed;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #aa8888;
+            font-size: 14px;
+            z-index: 200;
+            pointer-events: none;
+        }
+        
+        .level-progress {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 4px;
+            z-index: 200;
+            pointer-events: none;
+        }
+        
+        .level-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #333;
+            border: 1px solid #555;
+        }
+        
+        .level-dot.completed { background: #556655; border-color: #667766; }
+        .level-dot.current { background: #aa8844; border-color: #bb9955; box-shadow: 0 0 8px rgba(170,130,70,0.5); }
+        
+        .game-over, .victory {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,12,10,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 600;
+        }
+        
+        .game-over.show, .victory.show { display: flex; }
+        
+        .game-over-title { font-size: 44px; font-weight: bold; color: #cc5533; margin-bottom: 12px; }
+        .victory-title { font-size: 52px; font-weight: bold; color: #aa8844; text-shadow: 0 0 40px rgba(170,130,70,0.5); margin-bottom: 12px; }
+        
+        .muzzle-flash {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(255,200,100,0.25) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0;
+        }
+        
+        .muzzle-flash.show { opacity: 1; }
+        
+        .damage-screen {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        
+        .damage-screen.show { opacity: 1; }
+        
+        .low-health-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 45;
+            border: 0 solid transparent;
+            transition: border 0.3s;
+        }
+        
+        .low-health-overlay.warning {
+            border: 8px solid rgba(255, 80, 80, 0.4);
+            animation: pulse-red 0.5s infinite;
+        }
+        
+        @keyframes pulse-red {
+            0%, 100% { border-color: rgba(255, 80, 80, 0.4); }
+            50% { border-color: rgba(255, 80, 80, 0.6); }
+        }
+        
+        .pause-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,12,10,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+        }
+        
+        .pause-overlay.show { display: flex; }
+        
+        .reload-indicator {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #aa8844;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 200;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .reload-indicator.show { display: block; animation: pulse 0.5s infinite; }
+        
+        .corridor-indicator {
+            position: fixed;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #8899aa;
+            font-size: 14px;
+            z-index: 200;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .corridor-indicator.show { display: block; }
+        
+        .health-pickup-indicator {
+            position: fixed;
+            bottom: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #66aa66;
+            font-size: 14px;
+            z-index: 200;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .health-pickup-indicator.show { display: block; }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <div id="muzzle-flash" class="muzzle-flash"></div>
+    <div id="damage-screen" class="damage-screen"></div>
+    <div id="low-health-overlay" class="low-health-overlay"></div>
+    
+    <div class="crosshair" id="crosshair" style="display: none;">
+        <div class="crosshair-line crosshair-h"></div>
+        <div class="crosshair-line crosshair-v"></div>
+    </div>
+    
+    <div id="damage-indicator" class="damage-indicator">
+        <div class="damage-arrow"></div>
+    </div>
+    
+    <div id="level-progress" class="level-progress"></div>
+    
+    <div id="room-cleared" class="room-cleared">✓ ROOM CLEARED - Walk to EXIT DOOR</div>
+    <div id="enemies-counter" class="enemies-counter"></div>
+    
+    <div id="door-prompt" class="door-prompt">
+        <div class="door-prompt-text">🚪 WALK THROUGH DOOR</div>
+    </div>
+    
+    <div id="reload-indicator" class="reload-indicator">⟳ RELOADING...</div>
+    <div id="corridor-indicator" class="corridor-indicator">CORRIDOR - Proceed to next room</div>
+    <div id="health-pickup-indicator" class="health-pickup-indicator">+ HEALTH RESTORED</div>
+    
+    <div id="level-notification" class="level-notification">
+        <div class="level-number" id="level-number">LEVEL 1</div>
+        <div class="level-name" id="level-name">ENTRANCE HALL</div>
+    </div>
+    
+    <div class="hud hud-top-left" id="hud-top-left" style="display: none;">
+        <div class="panel">
+            <div class="stat-row">
+                <div class="stat-dot" style="background: #aa4444;"></div>
+                <div class="stat-bar"><div class="stat-fill" id="health-fill" style="background: #aa4444; width: 100%;"></div></div>
+                <span class="stat-text" id="health-text">100/100</span>
+            </div>
+            <div class="stat-row">
+                <div class="stat-dot" style="background: #aa8800;"></div>
+                <div class="stat-bar"><div class="stat-fill" id="ammo-fill" style="background: #aa8800; width: 100%;"></div></div>
+                <span class="stat-text" id="ammo-text">30/30</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="hud hud-top-right" id="hud-top-right" style="display: none;">
+        <div class="panel" style="text-align: right;">
+            <div style="color: #aa8844; font-size: 24px; font-weight: bold;" id="level-display">LEVEL 1</div>
+            <div style="color: #b0a090; font-size: 14px;" id="score-display">0</div>
+            <div style="color: #666; font-size: 11px; margin-top: 4px;" id="room-name">Entrance Hall</div>
+            <div style="color: #aa6644; font-size: 12px; margin-top: 4px; font-weight: bold;" id="weapon-indicator">🔫 AK-47</div>
+        </div>
+    </div>
+    
+    <div class="menu-overlay" id="menu">
+        <div style="font-size: 50px; margin-bottom: 10px;">⚔️</div>
+        <h1 class="menu-title">GORKHALI</h1>
+        <h2 class="menu-subtitle">4 LEVEL INFILTRATION</h2>
+        <p style="color: #555; margin-bottom: 4px; font-size: 13px;">Clear rooms → Walk through corridors → Cannot return!</p>
+        <p style="color: #886666; font-size: 12px; margin-bottom: 16px;">Health pickups spawn after clearing rooms!</p>
+        
+        <div class="menu-controls">
+            <span>WASD - Move</span>
+            <span>Shift - Sprint</span>
+            <span>Mouse - Aim</span>
+            <span>Click - Fire/Slash</span>
+            <span>Q - Switch Weapon</span>
+            <span>R - Reload</span>
+            <span>Space - Jump</span>
+            <span>ESC - Pause</span>
+        </div>
+        
+        <button class="menu-btn" id="start-btn">START MISSION</button>
+        <p style="color: #aa8844; font-size: 12px; margin-top: 16px;" id="high-score-display"></p>
+    </div>
+    
+    <div class="pause-overlay" id="pause">
+        <h2 style="font-size: 44px; color: #cc5533; margin-bottom: 24px;">PAUSED</h2>
+        <button class="menu-btn" id="resume-btn">RESUME</button>
+    </div>
+    
+    <div class="game-over" id="game-over">
+        <h2 class="game-over-title">MISSION FAILED</h2>
+        <p style="color: #666; margin-bottom: 6px;">You reached Level <span id="final-level">1</span></p>
+        <p style="color: #aa8844; font-size: 32px; font-weight: bold; margin-bottom: 16px;" id="final-score">0</p>
+        <button class="menu-btn" id="retry-btn">TRY AGAIN</button>
+    </div>
+    
+    <div class="victory" id="victory">
+        <h2 class="victory-title">🏆 VICTORY! 🏆</h2>
+        <p style="color: #a09080; font-size: 18px; margin-bottom: 6px;">All 4 levels cleared!</p>
+        <p style="color: #aa8844; font-size: 36px; font-weight: bold; margin-bottom: 16px;" id="victory-score">0</p>
+        <button class="menu-btn" id="victory-retry-btn" style="background: #aa8844;">PLAY AGAIN</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ==================== PROCEDURAL TEXTURES ====================
+        function createOldConcreteTexture(size = 512) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Base concrete color (brighter)
+            ctx.fillStyle = '#3a3835';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add noise and variation
+            for (let i = 0; i < 15000; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const gray = 45 + Math.random() * 35;
+                ctx.fillStyle = `rgb(${gray}, ${gray-2}, ${gray-4})`;
+                ctx.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
+            }
+            
+            // Add cracks
+            ctx.strokeStyle = '#0a0908';
+            ctx.lineWidth = 1;
+            for (let c = 0; c < 8; c++) {
+                ctx.beginPath();
+                let x = Math.random() * size;
+                let y = Math.random() * size;
+                ctx.moveTo(x, y);
+                for (let i = 0; i < 20; i++) {
+                    x += (Math.random() - 0.5) * 30;
+                    y += Math.random() * 15;
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Add dark stains (water damage) - lighter
+            for (let i = 0; i < 5; i++) {
+                const cx = Math.random() * size;
+                const cy = Math.random() * size;
+                const r = 20 + Math.random() * 60;
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                gradient.addColorStop(0, 'rgba(30, 28, 25, 0.3)');
+                gradient.addColorStop(1, 'rgba(30, 28, 25, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+            }
+            
+            // Add some lighter patches
+            for (let i = 0; i < 10; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const w = 20 + Math.random() * 40;
+                const h = 20 + Math.random() * 40;
+                ctx.fillStyle = `rgba(60, 58, 55, ${0.1 + Math.random() * 0.2})`;
+                ctx.fillRect(x, y, w, h);
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+        
+        function createRustyMetalTexture(size = 512) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Base rust color (brighter)
+            ctx.fillStyle = '#4a3a28';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Metal base showing through
+            for (let i = 0; i < 8000; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const r = 50 + Math.random() * 40;
+                const g = 45 + Math.random() * 35;
+                const b = 40 + Math.random() * 25;
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillRect(x, y, 1 + Math.random() * 3, 1 + Math.random() * 3);
+            }
+            
+            // Rust patches (brighter oranges)
+            for (let i = 0; i < 15; i++) {
+                const cx = Math.random() * size;
+                const cy = Math.random() * size;
+                const r = 30 + Math.random() * 80;
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                gradient.addColorStop(0, 'rgba(120, 70, 40, 0.6)');
+                gradient.addColorStop(0.5, 'rgba(90, 50, 30, 0.4)');
+                gradient.addColorStop(1, 'rgba(60, 30, 20, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, r, r * 0.7, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Orange rust streaks
+            ctx.strokeStyle = 'rgba(140, 80, 40, 0.4)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 10; i++) {
+                ctx.beginPath();
+                const x = Math.random() * size;
+                let y = 0;
+                ctx.moveTo(x, y);
+                for (let j = 0; j < 30; j++) {
+                    y += 5 + Math.random() * 10;
+                    ctx.lineTo(x + (Math.random() - 0.5) * 10, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Scratches
+            ctx.strokeStyle = 'rgba(90, 85, 80, 0.4)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 20; i++) {
+                ctx.beginPath();
+                const x1 = Math.random() * size;
+                const y1 = Math.random() * size;
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x1 + 20 + Math.random() * 50, y1 + (Math.random() - 0.5) * 20);
+                ctx.stroke();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+        
+        function createOldBrickWallTexture(size = 512) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Base mortar color (brighter)
+            ctx.fillStyle = '#3a3530';
+            ctx.fillRect(0, 0, size, size);
+            
+            const brickW = 60;
+            const brickH = 30;
+            const mortar = 4;
+            
+            for (let row = 0; row < size / brickH + 1; row++) {
+                const offset = (row % 2) * (brickW / 2);
+                for (let col = -1; col < size / brickW + 1; col++) {
+                    const x = col * brickW + offset;
+                    const y = row * brickH;
+                    
+                    // Brick base color with variation (brighter)
+                    const r = 70 + Math.random() * 25;
+                    const g = 55 + Math.random() * 20;
+                    const b = 50 + Math.random() * 15;
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(x + mortar/2, y + mortar/2, brickW - mortar, brickH - mortar);
+                    
+                    // Brick texture
+                    for (let i = 0; i < 30; i++) {
+                        const px = x + mortar/2 + Math.random() * (brickW - mortar);
+                        const py = y + mortar/2 + Math.random() * (brickH - mortar);
+                        ctx.fillStyle = `rgba(${r + Math.random()*20}, ${g + Math.random()*15}, ${b + Math.random()*10}, 0.5)`;
+                        ctx.fillRect(px, py, 2, 2);
+                    }
+                    
+                    // Dark edges
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.fillRect(x + mortar/2, y + mortar/2, brickW - mortar, 3);
+                    ctx.fillRect(x + mortar/2, y + mortar/2, 3, brickH - mortar);
+                }
+            }
+            
+            // Add water stains (lighter)
+            for (let i = 0; i < 8; i++) {
+                const cx = Math.random() * size;
+                const cy = Math.random() * size;
+                const r = 40 + Math.random() * 80;
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                gradient.addColorStop(0, 'rgba(50, 55, 60, 0.3)');
+                gradient.addColorStop(1, 'rgba(50, 55, 60, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, cy, size, r * 2);
+            }
+            
+            // Mortar cracks
+            ctx.strokeStyle = '#0a0908';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                let x = Math.random() * size;
+                let y = Math.random() * size;
+                ctx.moveTo(x, y);
+                for (let j = 0; j < 10; j++) {
+                    x += (Math.random() - 0.5) * 20;
+                    y += Math.random() * 15;
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+        
+        function createDirtyFloorTexture(size = 512) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Base floor (brighter)
+            ctx.fillStyle = '#2a2723';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Concrete tiles
+            const tileSize = 128;
+            for (let ty = 0; ty < size; ty += tileSize) {
+                for (let tx = 0; tx < size; tx += tileSize) {
+                    // Tile base (brighter)
+                    const brightness = 35 + Math.random() * 15;
+                    ctx.fillStyle = `rgb(${brightness}, ${brightness-1}, ${brightness-2})`;
+                    ctx.fillRect(tx + 2, ty + 2, tileSize - 4, tileSize - 4);
+                    
+                    // Tile texture
+                    for (let i = 0; i < 200; i++) {
+                        const x = tx + 2 + Math.random() * (tileSize - 4);
+                        const y = ty + 2 + Math.random() * (tileSize - 4);
+                        const g = brightness + Math.random() * 10 - 5;
+                        ctx.fillStyle = `rgb(${g}, ${g-1}, ${g-2})`;
+                        ctx.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
+                    }
+                }
+            }
+            
+            // Dark grout lines
+            ctx.fillStyle = '#0a0908';
+            for (let t = 0; t < size; t += tileSize) {
+                ctx.fillRect(t, 0, 2, size);
+                ctx.fillRect(0, t, size, 2);
+            }
+            
+            // Oil/grease stains (lighter)
+            for (let i = 0; i < 10; i++) {
+                const cx = Math.random() * size;
+                const cy = Math.random() * size;
+                const r = 20 + Math.random() * 50;
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                gradient.addColorStop(0, 'rgba(15, 15, 15, 0.5)');
+                gradient.addColorStop(0.5, 'rgba(20, 20, 20, 0.3)');
+                gradient.addColorStop(1, 'rgba(25, 25, 25, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, r, r * 0.6, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Dirt smears (lighter)
+            ctx.strokeStyle = 'rgba(40, 38, 35, 0.4)';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                let x = Math.random() * size;
+                let y = Math.random() * size;
+                ctx.moveTo(x, y);
+                for (let j = 0; j < 20; j++) {
+                    x += (Math.random() - 0.5) * 30;
+                    y += (Math.random() - 0.5) * 30;
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Scuff marks (lighter)
+            for (let i = 0; i < 30; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                ctx.fillStyle = `rgba(45, 43, 40, ${0.3 + Math.random() * 0.3})`;
+                ctx.beginPath();
+                ctx.ellipse(x, y, 10 + Math.random() * 20, 3 + Math.random() * 5, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+        
+        function createOldWoodTexture(size = 512) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Base wood color (brighter aged)
+            ctx.fillStyle = '#4a3a25';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Wood grain
+            for (let i = 0; i < size; i += 2) {
+                const offset = Math.sin(i * 0.05) * 10 + Math.random() * 5;
+                const brightness = 55 + Math.random() * 20;
+                ctx.strokeStyle = `rgb(${brightness}, ${brightness - 10}, ${brightness - 15})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, i + offset);
+                ctx.lineTo(size, i + offset + (Math.random() - 0.5) * 20);
+                ctx.stroke();
+            }
+            
+            // Dark knots
+            for (let i = 0; i < 5; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const r = 8 + Math.random() * 15;
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+                gradient.addColorStop(0, '#0a0805');
+                gradient.addColorStop(0.5, '#1a1208');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Scratches and wear (lighter)
+            ctx.strokeStyle = 'rgba(70, 55, 40, 0.4)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 30; i++) {
+                ctx.beginPath();
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + 20 + Math.random() * 60, y + (Math.random() - 0.5) * 10);
+                ctx.stroke();
+            }
+            
+            // Water damage (lighter)
+            for (let i = 0; i < 3; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const r = 30 + Math.random() * 50;
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+                gradient.addColorStop(0, 'rgba(35, 30, 25, 0.4)');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x - r, y - r, r * 2, r * 2);
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+        
+        function createRustyPipeTexture(size = 512) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Base pipe color (brighter)
+            const gradient = ctx.createLinearGradient(0, 0, size, 0);
+            gradient.addColorStop(0, '#3a3530');
+            gradient.addColorStop(0.3, '#4a4540');
+            gradient.addColorStop(0.5, '#555048');
+            gradient.addColorStop(0.7, '#4a4540');
+            gradient.addColorStop(1, '#3a3530');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Rust patches (brighter)
+            for (let i = 0; i < 25; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const r = 15 + Math.random() * 40;
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+                const rustR = 90 + Math.random() * 50;
+                const rustG = 55 + Math.random() * 30;
+                const rustB = 35 + Math.random() * 20;
+                gradient.addColorStop(0, `rgba(${rustR}, ${rustG}, ${rustB}, 0.8)`);
+                gradient.addColorStop(0.6, `rgba(${rustR-20}, ${rustG-10}, ${rustB-5}, 0.4)`);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.ellipse(x, y, r, r * 0.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Rust drips (brighter)
+            ctx.strokeStyle = 'rgba(100, 55, 30, 0.5)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                const x = Math.random() * size;
+                ctx.moveTo(x, 0);
+                let y = 0;
+                for (let j = 0; j < 20; j++) {
+                    y += 10 + Math.random() * 20;
+                    ctx.lineTo(x + (Math.random() - 0.5) * 5, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Bolts/rivets (brighter)
+            for (let y = 50; y < size; y += 100) {
+                for (let x = 50; x < size; x += 80) {
+                    // Bolt head
+                    ctx.fillStyle = '#403835';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Bolt highlight
+                    ctx.fillStyle = '#504845';
+                    ctx.beginPath();
+                    ctx.arc(x - 2, y - 2, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // X on bolt
+                    ctx.strokeStyle = '#151210';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x - 4, y - 4);
+                    ctx.lineTo(x + 4, y + 4);
+                    ctx.moveTo(x + 4, y - 4);
+                    ctx.lineTo(x - 4, y + 4);
+                    ctx.stroke();
+                }
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+        
+        // Create textures
+        let concreteTex, rustyMetalTex, brickWallTex, dirtyFloorTex, oldWoodTex, pipeTex;
+        
+        // ==================== LEVELS (4 LEVELS - EASY -> HARD) ====================
+        const LEVELS = [
+            // Level 1-2: EASY
+            { name: 'ENTRANCE HALL', enemies: 3, types: ['soldier'], size: 24 },
+            { name: 'STORAGE ROOM', enemies: 4, types: ['soldier', 'soldier'], size: 26 },
+            // Level 3-4: VERY HARD
+            { name: 'ARMORY', enemies: 8, types: ['assault', 'sniper', 'heavy', 'elite'], size: 30 },
+            { name: 'FINAL BUNKER', enemies: 10, types: ['heavy', 'elite', 'commander'], size: 32, boss: true }
+        ];
+
+        const ENEMY_TYPES = {
+            soldier: { hp: 35, speed: 2.2, damage: 8, points: 100, color: 0x3a4a3a },
+            assault: { hp: 45, speed: 2.8, damage: 10, points: 150, color: 0x4a5a4a },
+            sniper: { hp: 28, speed: 1.8, damage: 12, points: 200, color: 0x2a3a2a },
+            heavy: { hp: 90, speed: 1.3, damage: 15, points: 300, color: 0x1a2a1a },
+            elite: { hp: 70, speed: 2.4, damage: 18, points: 400, color: 0x152515 },
+            commander: { hp: 250, speed: 1.2, damage: 25, points: 1000, color: 0x5a1010, boss: true }
+        };
+
+        // ==================== STATE ====================
+        let scene, camera, renderer, weapon;
+        let audioCtx, animId, lastTime = 0;
+        let gameScreen = 'menu';
+        
+        const player = { x: 0, y: 1.6, z: 0, pitch: 0, yaw: 0, vy: 0, onGround: true };
+        const keys = {};
+        let isLocked = false;
+        
+        let enemies = [];
+        let projectiles = [];
+        let obstacles = [];
+        let healthPickups = [];
+        let exitDoor = null;
+        let exitDoorPos = { x: 0, z: 0 };
+        let entryDoorMesh = null;
+        
+        let currentLevel = 0;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('gorkhali_10lv_high') || '0');
+        let health = 100;
+        let maxHealth = 100;
+        let ammo = 30;
+        let maxAmmo = 30;
+        let lastShot = 0;
+        let isReloading = false;
+        let reloadTime = 0;
+        let reloadDuration = 3.2;
+        
+        let levelCleared = false;
+        let nearDoor = false;
+        let transitioning = false;
+        
+        let inCorridor = false;
+        
+        let corridorLength = 16;
+
+        // ==================== SOUND SYSTEM ====================
+        let ak47ShotAudio = null;
+        let ak47ReloadAudio = null;
+        let footstepAudios = [];
+        let soundsLoaded = false;
+        let lastFootstepIndex = -1;
+        let isLeftFoot = false;
+        
+        let khukuriEquipped = false;
+        let khukuri = null;
+
+        function loadRealSounds() {
+            ak47ShotAudio = new Audio();
+            ak47ShotAudio.src = 'https://cdn.freesound.org/previews/163/163457_2263027-lq.mp3';
+            ak47ShotAudio.volume = 0.6;
+            ak47ShotAudio.preload = 'auto';
+            
+            ak47ReloadAudio = new Audio();
+            ak47ReloadAudio.src = 'https://cdn.freesound.org/previews/276/276958_5172328-lq.mp3';
+            ak47ReloadAudio.volume = 0.7;
+            ak47ReloadAudio.preload = 'auto';
+            
+            const footstepUrls = [
+                'https://cdn.freesound.org/previews/530/530975_10810883-lq.mp3',
+                'https://cdn.freesound.org/previews/531/531000_10810883-lq.mp3',
+                'https://cdn.freesound.org/previews/531/531002_10810883-lq.mp3',
+                'https://cdn.freesound.org/previews/531/531004_10810883-lq.mp3'
+            ];
+            
+            footstepUrls.forEach((url) => {
+                const audio = new Audio();
+                audio.src = url;
+                audio.volume = 0.4;
+                audio.preload = 'auto';
+                footstepAudios.push(audio);
+            });
+            
+            soundsLoaded = true;
+        }
+        
+        function playPlayerFootstep() {
+            if (footstepAudios.length > 0) {
+                let index;
+                do {
+                    index = Math.floor(Math.random() * footstepAudios.length);
+                } while (index === lastFootstepIndex && footstepAudios.length > 1);
+                lastFootstepIndex = index;
+                
+                const audioClone = footstepAudios[index].cloneNode();
+                audioClone.volume = (isLeftFoot ? 0.35 : 0.3) + Math.random() * 0.1;
+                isLeftFoot = !isLeftFoot;
+                audioClone.playbackRate = 0.85 + Math.random() * 0.3;
+                audioClone.play().catch(() => {});
+            }
+        }
+        
+        function playEnemyFootstep(enemyX, enemyZ) {
+            if (!audioCtx) return;
+            
+            const dx = enemyX - player.x;
+            const dz = enemyZ - player.z;
+            const angleToEnemy = Math.atan2(dx, dz);
+            const relativeAngle = angleToEnemy - player.yaw;
+            const pan = Math.sin(relativeAngle);
+            
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            const volume = Math.max(0.05, Math.min(0.25, 0.5 - dist * 0.03));
+            
+            const now = audioCtx.currentTime;
+            const bufferSize = audioCtx.sampleRate * 0.08;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.015));
+            }
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const panner = audioCtx.createStereoPanner();
+            panner.pan.value = pan;
+            
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.value = volume;
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 600;
+            
+            noise.connect(filter);
+            filter.connect(panner);
+            panner.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            noise.start();
+            noise.stop(now + 0.08);
+        }
+        
+        function playSound(freq, dur, type = 'sine') {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = type;
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+            osc.start();
+            osc.stop(audioCtx.currentTime + dur);
+        }
+
+        function playAK47Shot() {
+            if (ak47ShotAudio) {
+                const audioClone = ak47ShotAudio.cloneNode();
+                audioClone.volume = 0.5 + Math.random() * 0.2;
+                audioClone.play().catch(() => {});
+            }
+            
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const sr = audioCtx.sampleRate;
+            
+            const bassLen = sr * 0.1;
+            const bassBuffer = audioCtx.createBuffer(1, bassLen, sr);
+            const bassData = bassBuffer.getChannelData(0);
+            for (let i = 0; i < bassLen; i++) {
+                const t = i / sr;
+                bassData[i] = Math.sin(50 * Math.PI * 2 * t) * Math.exp(-t * 35) * 0.8;
+            }
+            const bass = audioCtx.createBufferSource();
+            bass.buffer = bassBuffer;
+            const bassGain = audioCtx.createGain();
+            bassGain.gain.setValueAtTime(0.4, now);
+            bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            bass.connect(bassGain);
+            bassGain.connect(audioCtx.destination);
+            bass.start();
+        }
+
+        function playAK47Reload() {
+            if (ak47ReloadAudio) {
+                ak47ReloadAudio.currentTime = 0;
+                ak47ReloadAudio.play().catch(() => {});
+            }
+        }
+        
+        function playEnemyShot() {
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * 0.08;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.02));
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+            noise.start();
+        }
+
+        function playDoorOpen() {
+            if (!audioCtx) return;
+            [120, 160, 200].forEach((f, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'square';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.12);
+                }, i * 60);
+            });
+        }
+
+        function playLevelComplete() {
+            if (!audioCtx) return;
+            [400, 500, 600, 800].forEach((f, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.12);
+                }, i * 80);
+            });
+        }
+
+        function playFootstep() {
+            playPlayerFootstep();
+        }
+
+        function playDoorClose() {
+            if (!audioCtx) return;
+            const bang = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            bang.connect(gain);
+            gain.connect(audioCtx.destination);
+            bang.type = 'triangle';
+            bang.frequency.value = 100;
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            bang.start();
+            bang.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playHealthPickup() {
+            if (!audioCtx) return;
+            [600, 800, 1000].forEach((f, i) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                }, i * 60);
+            });
+        }
+
+        // ==================== CREATE AK-47 ====================
+        function createAK47() {
+            const ak47 = new THREE.Group();
+            
+            const woodMat = new THREE.MeshLambertMaterial({ color: 0x5a3d20 });
+            const metalMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+            const steelMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
+            
+            const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.055, 0.35), metalMat);
+            ak47.add(receiver);
+            
+            const cover = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 0.28), steelMat);
+            cover.position.set(0, 0.035, -0.02);
+            ak47.add(cover);
+            
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 12), metalMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.015, -0.38);
+            ak47.add(barrel);
+            
+            const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.25, 8), steelMat);
+            gasTube.rotation.x = Math.PI / 2;
+            gasTube.position.set(0, 0.04, -0.28);
+            ak47.add(gasTube);
+            
+            const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.025), metalMat);
+            frontSight.position.set(0, 0.06, -0.48);
+            ak47.add(frontSight);
+            
+            const sightPost = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.025, 0.003), metalMat);
+            sightPost.position.set(0, 0.09, -0.48);
+            ak47.add(sightPost);
+            
+            const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.025, 0.02), metalMat);
+            rearSight.position.set(0, 0.055, -0.08);
+            ak47.add(rearSight);
+            
+            const handguardTop = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.025, 0.18), woodMat);
+            handguardTop.position.set(0, 0.015, -0.28);
+            ak47.add(handguardTop);
+            
+            const handguardLow = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.025, 0.15), woodMat);
+            handguardLow.position.set(0, -0.02, -0.26);
+            ak47.add(handguardLow);
+            
+            const magShape = new THREE.Shape();
+            magShape.moveTo(-0.025, 0);
+            magShape.lineTo(-0.03, 0.12);
+            magShape.quadraticCurveTo(-0.025, 0.18, 0, 0.2);
+            magShape.quadraticCurveTo(0.025, 0.18, 0.03, 0.12);
+            magShape.lineTo(0.025, 0);
+            magShape.lineTo(-0.025, 0);
+            
+            const magGeo = new THREE.ExtrudeGeometry(magShape, { depth: 0.025, bevelEnabled: false });
+            const magazine = new THREE.Mesh(magGeo, metalMat);
+            magazine.rotation.x = -0.15;
+            magazine.position.set(-0.0125, -0.055, 0.05);
+            ak47.add(magazine);
+            
+            const triggerGuard = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.004, 8, 12, Math.PI), metalMat);
+            triggerGuard.rotation.y = Math.PI / 2;
+            triggerGuard.position.set(0, -0.045, 0.08);
+            ak47.add(triggerGuard);
+            
+            const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.025, 0.008), metalMat);
+            trigger.position.set(0, -0.035, 0.07);
+            ak47.add(trigger);
+            
+            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.08, 0.035), woodMat);
+            grip.position.set(0, -0.09, 0.12);
+            grip.rotation.x = 0.35;
+            ak47.add(grip);
+            
+            const stock = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.07, 0.22), woodMat);
+            stock.position.set(0, -0.01, 0.24);
+            ak47.add(stock);
+            
+            const buttPlate = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.075, 0.012), metalMat);
+            buttPlate.position.set(0, -0.01, 0.36);
+            ak47.add(buttPlate);
+            
+            const chargingHandle = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.04), metalMat);
+            chargingHandle.position.set(0.035, 0.02, -0.05);
+            ak47.add(chargingHandle);
+            
+            const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.014, 0.05, 8), metalMat);
+            muzzle.rotation.x = Math.PI / 2;
+            muzzle.position.set(0, 0.015, -0.6);
+            ak47.add(muzzle);
+            
+            ak47.scale.set(0.9, 0.9, 0.9);
+            ak47.position.set(0.28, -0.18, -0.45);
+            ak47.rotation.y = 0.02;
+            
+            return ak47;
+        }
+
+        // ==================== CREATE KHUKURI ====================
+        function createKhukuri() {
+            const khukuri = new THREE.Group();
+            
+            const bladeMat = new THREE.MeshLambertMaterial({ color: 0x4a4a4a });
+            const handleMat = new THREE.MeshLambertMaterial({ color: 0x3a2a15 });
+            const brassMat = new THREE.MeshLambertMaterial({ color: 0x7a6020 });
+            
+            const bladeShape = new THREE.Shape();
+            bladeShape.moveTo(0, 0);
+            bladeShape.quadraticCurveTo(0.12, 0.15, 0.08, 0.35);
+            bladeShape.quadraticCurveTo(0.02, 0.42, -0.05, 0.38);
+            bladeShape.quadraticCurveTo(-0.1, 0.3, -0.08, 0.15);
+            bladeShape.quadraticCurveTo(-0.05, 0.05, 0, 0);
+            
+            const bladeGeo = new THREE.ExtrudeGeometry(bladeShape, { 
+                depth: 0.012, 
+                bevelEnabled: true,
+                bevelThickness: 0.002,
+                bevelSize: 0.002,
+                bevelSegments: 2
+            });
+            
+            const blade = new THREE.Mesh(bladeGeo, bladeMat);
+            blade.rotation.z = -Math.PI / 6;
+            blade.rotation.y = Math.PI / 2;
+            blade.position.set(0, 0.02, 0);
+            khukuri.add(blade);
+            
+            const spine = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.38, 0.015), bladeMat);
+            spine.rotation.z = -Math.PI / 6;
+            spine.position.set(0.01, 0.2, 0);
+            khukuri.add(spine);
+            
+            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.018, 0.12, 8), handleMat);
+            handle.rotation.z = Math.PI / 2 + 0.3;
+            handle.position.set(-0.06, -0.06, 0);
+            khukuri.add(handle);
+            
+            for (let i = 0; i < 4; i++) {
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(0.023, 0.003, 6, 12), brassMat);
+                ring.rotation.y = Math.PI / 2;
+                ring.rotation.z = Math.PI / 2 + 0.3;
+                ring.position.set(-0.06 + i * 0.025, -0.06, 0);
+                khukuri.add(ring);
+            }
+            
+            const buttCap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.022, 0.02, 8), brassMat);
+            buttCap.rotation.z = Math.PI / 2 + 0.3;
+            buttCap.position.set(-0.1, -0.09, 0);
+            khukuri.add(buttCap);
+            
+            const cho = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.025, 0.014), bladeMat);
+            cho.rotation.z = -Math.PI / 6 + 0.5;
+            cho.position.set(-0.02, 0.05, 0);
+            khukuri.add(cho);
+            
+            const karda = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.08, 0.003), bladeMat);
+            karda.position.set(-0.08, 0.02, 0.02);
+            khukuri.add(karda);
+            
+            khukuri.scale.set(1.2, 1.2, 1.2);
+            khukuri.position.set(0.22, -0.15, -0.35);
+            khukuri.rotation.y = 0.3;
+            khukuri.rotation.x = -0.2;
+            
+            return khukuri;
+        }
+
+        // ==================== INIT ====================
+        function initScene() {
+            const container = document.getElementById('game-container');
+            
+            // Create all textures
+            concreteTex = createOldConcreteTexture();
+            rustyMetalTex = createRustyMetalTexture();
+            brickWallTex = createOldBrickWallTexture();
+            dirtyFloorTex = createDirtyFloorTexture();
+            oldWoodTex = createOldWoodTexture();
+            pipeTex = createRustyPipeTexture();
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0908);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.6, 5);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+            
+            weapon = createAK47();
+            camera.add(weapon);
+            
+            khukuri = createKhukuri();
+            khukuri.visible = false;
+            camera.add(khukuri);
+            
+            scene.add(camera);
+            
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            document.addEventListener('pointerlockchange', () => {
+                isLocked = document.pointerLockElement === renderer.domElement;
+            });
+            
+            document.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+                if (e.code === 'Space') e.preventDefault();
+                if (e.code === 'Escape' && gameScreen === 'game') {
+                    document.exitPointerLock();
+                    gameScreen = 'pause';
+                    updateUI();
+                }
+                if (e.code === 'KeyR' && !isReloading && ammo < maxAmmo && !khukuriEquipped) {
+                    startReload();
+                }
+                
+                if (e.code === 'KeyQ' && gameScreen === 'game') {
+                    khukuriEquipped = !khukuriEquipped;
+                    weapon.visible = !khukuriEquipped;
+                    khukuri.visible = khukuriEquipped;
+                    playSound(300, 0.08, 'square');
+                    playSound(400, 0.06, 'sine');
+                }
+                
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            });
+            
+            document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isLocked || gameScreen !== 'game') return;
+                player.yaw -= e.movementX * 0.002;
+                player.pitch -= e.movementY * 0.002;
+                player.pitch = Math.max(-1.5, Math.min(1.5, player.pitch));
+            });
+            
+            document.addEventListener('mousedown', (e) => {
+                if (e.button === 0) keys['MouseLeft'] = true;
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            });
+            
+            document.addEventListener('mouseup', (e) => { if (e.button === 0) keys['MouseLeft'] = false; });
+            document.addEventListener('contextmenu', (e) => e.preventDefault());
+            
+            const progress = document.getElementById('level-progress');
+            for (let i = 0; i < 4; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'level-dot';
+                dot.id = `level-dot-${i}`;
+                progress.appendChild(dot);
+            }
+            
+            if (highScore > 0) document.getElementById('high-score-display').textContent = `High Score: ${highScore.toLocaleString()}`;
+        }
+        
+        function startReload() {
+            isReloading = true;
+            reloadTime = 0;
+            playAK47Reload();
+            document.getElementById('reload-indicator').classList.add('show');
+            document.getElementById('reload-indicator').textContent = '⟳ RELOADING...';
+        }
+
+        function clearProjectiles() {
+            for (const p of projectiles) {
+                scene.remove(p.mesh);
+            }
+            projectiles = [];
+        }
+
+        // ==================== BUILD CORRIDOR ====================
+        function buildCorridor() {
+            clearProjectiles();
+            
+            while(scene.children.length > 0) scene.remove(scene.children[0]);
+            scene.add(camera);
+            
+            obstacles = [];
+            enemies = [];
+            healthPickups = [];
+            inCorridor = true;
+            levelCleared = false;
+            nearDoor = false;
+            
+            corridorLength = 16;
+            const corridorWidth = 4;
+            const corridorHeight = 3.5;
+            
+            // Brighter ambient for visibility
+            scene.add(new THREE.AmbientLight(0x888877, 0.6));
+            
+            // Floor with dirty texture
+            const floorMat = new THREE.MeshLambertMaterial({ map: dirtyFloorTex });
+            dirtyFloorTex.repeat.set(2, 4);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(corridorWidth, corridorLength), floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+            
+            // Warning stripes
+            const stripeMat = new THREE.MeshLambertMaterial({ color: 0x665522 });
+            for (let i = 0; i < 3; i++) {
+                const stripe = new THREE.Mesh(new THREE.BoxGeometry(corridorWidth, 0.01, 0.12), stripeMat);
+                stripe.position.set(0, 0.01, -corridorLength/2 + 2 + i * 5);
+                scene.add(stripe);
+            }
+            
+            // Ceiling
+            const ceilMat = new THREE.MeshLambertMaterial({ map: concreteTex });
+            concreteTex.repeat.set(1, 4);
+            const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(corridorWidth, corridorLength), ceilMat);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.set(0, corridorHeight, 0);
+            scene.add(ceiling);
+            
+            // Walls with brick texture
+            const wallMat = new THREE.MeshLambertMaterial({ map: brickWallTex });
+            brickWallTex.repeat.set(2, 1);
+            
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, corridorHeight, corridorLength), wallMat);
+            leftWall.position.set(-corridorWidth/2, corridorHeight/2, 0);
+            scene.add(leftWall);
+            obstacles.push({ x: -corridorWidth/2, z: 0, w: 0.3, d: corridorLength/2 });
+            
+            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, corridorHeight, corridorLength), wallMat);
+            rightWall.position.set(corridorWidth/2, corridorHeight/2, 0);
+            scene.add(rightWall);
+            obstacles.push({ x: corridorWidth/2, z: 0, w: 0.3, d: corridorLength/2 });
+            
+            // Rusty panels on walls
+            const panelMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+            rustyMetalTex.repeat.set(0.5, 1);
+            for (let i = 0; i < 4; i++) {
+                const panelL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.5, 0.8), panelMat);
+                panelL.position.set(-corridorWidth/2 + 0.05, 1.5, -corridorLength/2 + 2.5 + i * 3.5);
+                scene.add(panelL);
+                
+                const panelR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.5, 0.8), panelMat);
+                panelR.position.set(corridorWidth/2 - 0.05, 1.5, -corridorLength/2 + 2.5 + i * 3.5);
+                scene.add(panelR);
+            }
+            
+            // Rusty pipes on ceiling
+            const pipeMat = new THREE.MeshLambertMaterial({ map: pipeTex });
+            pipeTex.repeat.set(1, 4);
+            for (let i = 0; i < 3; i++) {
+                const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, corridorLength, 8), pipeMat);
+                pipe.rotation.x = Math.PI / 2;
+                pipe.position.set(-0.8 + i * 0.8, corridorHeight - 0.15, 0);
+                scene.add(pipe);
+            }
+            
+            // Flickering lights
+            const lightFixtureMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+            for (let i = 0; i < 4; i++) {
+                const light = new THREE.PointLight(0xffeedd, 1.2, 15);
+                light.position.set(0, corridorHeight - 0.3, -corridorLength/2 + 2 + i * 4);
+                scene.add(light);
+                
+                const fixture = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.25), lightFixtureMat);
+                fixture.position.set(0, corridorHeight - 0.05, -corridorLength/2 + 2 + i * 4);
+                scene.add(fixture);
+            }
+            
+            // Emergency red light
+            const redLight = new THREE.PointLight(0xff4444, 0.7, 12);
+            redLight.position.set(0, 2.5, corridorLength/2 - 2);
+            scene.add(redLight);
+            
+            // Exit sign
+            const exitSign = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.02), new THREE.MeshBasicMaterial({ color: 0x446644 }));
+            exitSign.position.set(0, corridorHeight - 0.5, corridorLength/2 - 3);
+            scene.add(exitSign);
+            
+            // Entry door
+            const doorMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+            const entryDoor = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.8, 0.15), doorMat);
+            entryDoor.position.set(0, 1.4, -corridorLength/2 + 0.1);
+            scene.add(entryDoor);
+            
+            const frameMat = new THREE.MeshLambertMaterial({ color: 0x2a2520 });
+            const entryFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 0.2), frameMat);
+            entryFrame.position.set(0, 2.85, -corridorLength/2 + 0.1);
+            scene.add(entryFrame);
+            
+            obstacles.push({ x: 0, z: -corridorLength/2, w: 1, d: 0.5, isEntryDoor: true });
+            
+            // Exit door
+            exitDoor = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.8, 0.15), new THREE.MeshLambertMaterial({ color: 0x2a442a }));
+            exitDoor.position.set(0, 4.5, corridorLength/2 - 0.1);
+            scene.add(exitDoor);
+            
+            const exitFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 0.2), frameMat);
+            exitFrame.position.set(0, 2.85, corridorLength/2 - 0.1);
+            scene.add(exitFrame);
+            
+            exitDoorPos = { x: 0, z: corridorLength/2 };
+            
+            scene.fog = new THREE.Fog(0x2a2520, 5, 20);
+            scene.background = new THREE.Color(0x2a2520);
+            
+            player.x = 0;
+            player.z = -corridorLength/2 + 2;
+            player.y = 1.6;
+            player.yaw = 0;
+            player.pitch = 0;
+        }
+
+        // ==================== BUILD LEVEL ====================
+        function buildLevel(levelIndex) {
+            clearProjectiles();
+            
+            while(scene.children.length > 0) scene.remove(scene.children[0]);
+            scene.add(camera);
+            
+            obstacles = [];
+            enemies = [];
+            healthPickups = [];
+            exitDoor = null;
+            entryDoorMesh = null;
+            levelCleared = false;
+            nearDoor = false;
+            isReloading = false;
+            inCorridor = false;
+            
+            // Brighter ambient for visibility
+            scene.add(new THREE.AmbientLight(0x888877, 0.7));
+            
+            const level = LEVELS[levelIndex];
+            const size = level.size;
+            const half = size / 2;
+            
+            // Dirty floor
+            const floorMat = new THREE.MeshLambertMaterial({ map: dirtyFloorTex });
+            dirtyFloorTex.repeat.set(size / 8, size / 8);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(size, size), floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+            
+            // Floor drains
+            const drainMat = new THREE.MeshLambertMaterial({ color: 0x0a0a0a });
+            for (let i = -3; i <= 3; i++) {
+                const drain = new THREE.Mesh(new THREE.BoxGeometry(size, 0.02, 0.12), drainMat);
+                drain.position.set(0, 0.01, i * (size / 7));
+                scene.add(drain);
+            }
+            
+            // Brick walls
+            const wallMat = new THREE.MeshLambertMaterial({ map: brickWallTex });
+            brickWallTex.repeat.set(size / 16, 0.8);
+            
+            if (levelIndex === 0) {
+                const backWall = new THREE.Mesh(new THREE.BoxGeometry(size, 4, 0.6), wallMat);
+                backWall.position.set(0, 2, -half);
+                scene.add(backWall);
+                obstacles.push({ x: 0, z: -half, w: half, d: 0.5 });
+            } else {
+                const backWallLeft = new THREE.Mesh(new THREE.BoxGeometry(half - 1.2, 4, 0.6), wallMat);
+                backWallLeft.position.set(-(half + 1.2) / 2, 2, -half);
+                scene.add(backWallLeft);
+                obstacles.push({ x: -(half + 1.2) / 2, z: -half, w: (half - 1.2) / 2, d: 0.5 });
+                
+                const backWallRight = new THREE.Mesh(new THREE.BoxGeometry(half - 1.2, 4, 0.6), wallMat);
+                backWallRight.position.set((half + 1.2) / 2, 2, -half);
+                scene.add(backWallRight);
+                obstacles.push({ x: (half + 1.2) / 2, z: -half, w: (half - 1.2) / 2, d: 0.5 });
+                
+                const doorMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+                entryDoorMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 3.2, 0.15), doorMat);
+                entryDoorMesh.position.set(0, 1.6, -half + 0.1);
+                scene.add(entryDoorMesh);
+                
+                obstacles.push({ x: 0, z: -half, w: 1, d: 0.5, isEntryDoor: true });
+            }
+            
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 4, size), wallMat);
+            leftWall.position.set(-half, 2, 0);
+            scene.add(leftWall);
+            obstacles.push({ x: -half, z: 0, w: 0.5, d: half });
+            
+            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 4, size), wallMat);
+            rightWall.position.set(half, 2, 0);
+            scene.add(rightWall);
+            obstacles.push({ x: half, z: 0, w: 0.5, d: half });
+            
+            const frontWallLeft = new THREE.Mesh(new THREE.BoxGeometry(half - 1.2, 4, 0.6), wallMat);
+            frontWallLeft.position.set(-(half + 1.2) / 2, 2, half);
+            scene.add(frontWallLeft);
+            obstacles.push({ x: -(half + 1.2) / 2, z: half, w: (half - 1.2) / 2, d: 0.5 });
+            
+            const frontWallRight = new THREE.Mesh(new THREE.BoxGeometry(half - 1.2, 4, 0.6), wallMat);
+            frontWallRight.position.set((half + 1.2) / 2, 2, half);
+            scene.add(frontWallRight);
+            obstacles.push({ x: (half + 1.2) / 2, z: half, w: (half - 1.2) / 2, d: 0.5 });
+            
+            // Exit door
+            const doorColor = level.boss ? 0x441515 : 0x2a442a;
+            exitDoor = new THREE.Mesh(new THREE.BoxGeometry(2, 3.2, 0.15), new THREE.MeshLambertMaterial({ color: doorColor }));
+            exitDoor.position.set(0, 1.6, half - 0.1);
+            scene.add(exitDoor);
+            exitDoorPos = { x: 0, z: half };
+            obstacles.push({ x: 0, z: half, w: 1, d: 0.5, isExitDoor: true });
+            
+            // Rusty pipes
+            const pipeMat = new THREE.MeshLambertMaterial({ map: pipeTex });
+            pipeTex.repeat.set(1, size / 4);
+            for (let i = 0; i < 3; i++) {
+                const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, size, 8), pipeMat);
+                pipe.rotation.x = Math.PI / 2;
+                pipe.position.set(-half + 0.1, 3 - i * 0.6, 0);
+                scene.add(pipe);
+            }
+            
+            for (let i = 0; i < 2; i++) {
+                const cpipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, size, 8), pipeMat);
+                cpipe.rotation.x = Math.PI / 2;
+                cpipe.position.set(half - 0.2, 3.8, 0);
+                scene.add(cpipe);
+            }
+            
+            // Ventilation ducts
+            const ductMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+            rustyMetalTex.repeat.set(1, 2);
+            for (let i = 0; i < 2; i++) {
+                const duct = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, size * 0.5), ductMat);
+                duct.position.set((i - 0.5) * 3, 3.8, 0);
+                scene.add(duct);
+            }
+            
+            // Old wooden crates
+            const crateMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+            const crateWoodMat = new THREE.MeshLambertMaterial({ map: oldWoodTex });
+            oldWoodTex.repeat.set(1, 1);
+            
+            for (let i = 0; i < 5 + levelIndex; i++) {
+                const angle = (i / (5 + levelIndex)) * Math.PI * 2 + Math.PI / 4;
+                const dist = 4 + Math.random() * (half - 8);
+                const cx = Math.cos(angle) * dist;
+                const cz = Math.sin(angle) * dist;
+                
+                if (Math.abs(cz - half) > 3 && Math.abs(cz + half) > 3) {
+                    const isWood = Math.random() > 0.5;
+                    const crateSize = 0.8 + Math.random() * 0.5;
+                    const crate = new THREE.Mesh(new THREE.BoxGeometry(crateSize, crateSize, crateSize), isWood ? crateWoodMat : crateMat);
+                    crate.position.set(cx, crateSize / 2, cz);
+                    scene.add(crate);
+                    obstacles.push({ x: cx, z: cz, w: crateSize / 2 + 0.1, d: crateSize / 2 + 0.1 });
+                }
+            }
+            
+            // Old barrels
+            const barrelMat = new THREE.MeshLambertMaterial({ color: 0x1a2a1a });
+            for (let i = 0; i < 2 + Math.floor(levelIndex / 2); i++) {
+                const bx = (Math.random() - 0.5) * (size - 6);
+                const bz = (Math.random() - 0.5) * (size - 6);
+                if (Math.abs(bz - half) > 3 && Math.abs(bz + half) > 3) {
+                    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12), barrelMat);
+                    barrel.position.set(bx, 0.45, bz);
+                    scene.add(barrel);
+                    obstacles.push({ x: bx, z: bz, w: 0.45, d: 0.45 });
+                }
+            }
+            
+            // Dim lights
+            const lightFixtureMat = new THREE.MeshLambertMaterial({ map: rustyMetalTex });
+            for (let i = 0; i < 6; i++) {
+                const lx = (i % 3 - 1) * half * 0.5;
+                const lz = (Math.floor(i / 3) - 0.5) * half * 0.6;
+                
+                const light = new THREE.PointLight(0xffeedd, 1.5, 20);
+                light.position.set(lx, 3.4, lz);
+                scene.add(light);
+                
+                const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.3), lightFixtureMat);
+                fixture.position.set(lx, 3.8, lz);
+                scene.add(fixture);
+            }
+            
+            // Red alarm light
+            const redLight = new THREE.PointLight(0xff4444, 0.8, 15);
+            redLight.position.set(0, 2.8, half - 3);
+            scene.add(redLight);
+            
+            const alarmMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshBasicMaterial({ color: 0x661111 }));
+            alarmMesh.position.set(0, 3.5, half - 3);
+            scene.add(alarmMesh);
+            
+            // Ceiling beams
+            const beamMat = new THREE.MeshLambertMaterial({ map: oldWoodTex });
+            for (let i = 0; i < 3; i++) {
+                const beam = new THREE.Mesh(new THREE.BoxGeometry(size, 0.15, 0.25), beamMat);
+                beam.position.set(0, 3.9, -half + 4 + i * (size / 4));
+                scene.add(beam);
+            }
+            
+            // Enemies
+            for (let i = 0; i < level.enemies; i++) {
+                const type = level.types[Math.floor(Math.random() * level.types.length)];
+                const cfg = ENEMY_TYPES[type];
+                
+                let ex, ez;
+                do {
+                    ex = (Math.random() - 0.5) * (size - 6);
+                    ez = (Math.random() - 0.5) * (size - 8);
+                } while (Math.abs(ez - half) < 4);
+                
+                const mesh = createEnemyMesh(type);
+                mesh.position.set(ex, 0, ez);
+                scene.add(mesh);
+                
+                const hpMult = 1 + levelIndex * 0.08;
+                const minInterval = 800;
+                const baseInterval = 1800 + Math.random() * 800 - levelIndex * 50;
+                enemies.push({
+                    mesh, type,
+                    hp: cfg.hp * hpMult,
+                    maxHp: cfg.hp * hpMult,
+                    speed: cfg.speed * (1 + levelIndex * 0.015),
+                    damage: cfg.damage,
+                    lastShot: 1500 + Math.random() * 1000,
+                    shootInterval: Math.max(minInterval, baseInterval)
+                });
+            }
+            
+            scene.fog = new THREE.Fog(0x1a1815, 8, size * 0.9);
+            scene.background = new THREE.Color(0x1a1815);
+            
+            player.x = 0;
+            player.z = -half + 3;
+            player.y = 1.6;
+            player.yaw = 0;
+            player.pitch = 0;
+        }
+
+        function createEnemyMesh(type) {
+            const group = new THREE.Group();
+            const cfg = ENEMY_TYPES[type];
+            
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.75, 0.28), new THREE.MeshLambertMaterial({ color: cfg.color }));
+            body.position.y = 0.95;
+            group.add(body);
+            
+            const vest = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.4, 0.32), new THREE.MeshLambertMaterial({ color: 0x252525 }));
+            vest.position.y = 1.1;
+            group.add(vest);
+            
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshLambertMaterial({ color: 0x8a7054 }));
+            head.position.y = 1.52;
+            group.add(head);
+            
+            const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: cfg.color }));
+            helmet.position.y = 1.55;
+            group.add(helmet);
+            
+            const legMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+            const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.45, 0.14), legMat);
+            leftLeg.position.set(-0.12, 0.25, 0);
+            group.add(leftLeg);
+            const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.45, 0.14), legMat);
+            rightLeg.position.set(0.12, 0.25, 0);
+            group.add(rightLeg);
+            
+            const gun = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.35), new THREE.MeshLambertMaterial({ color: 0x1a1a1a }));
+            gun.position.set(0.32, 0.95, 0.15);
+            group.add(gun);
+            
+            return group;
+        }
+
+        // ==================== ENTER CORRIDOR ====================
+        function enterCorridor() {
+            if (transitioning) return;
+            
+            transitioning = true;
+            playDoorOpen();
+            playDoorClose();
+            
+            setTimeout(() => {
+                buildCorridor();
+                transitioning = false;
+                
+                document.getElementById('corridor-indicator').classList.add('show');
+                setTimeout(() => document.getElementById('corridor-indicator').classList.remove('show'), 3000);
+            }, 300);
+        }
+
+        // ==================== ENTER NEXT LEVEL ====================
+        function enterNextLevel() {
+            if (transitioning) return;
+            
+            if (currentLevel >= 3) {
+                gameScreen = 'victory';
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('gorkhali_10lv_high', String(highScore));
+                }
+                updateUI();
+                return;
+            }
+            
+            transitioning = true;
+            playDoorOpen();
+            
+            setTimeout(() => {
+                currentLevel++;
+                buildLevel(currentLevel);
+                transitioning = false;
+                
+                document.getElementById('level-number').textContent = `LEVEL ${currentLevel + 1}`;
+                document.getElementById('level-name').textContent = LEVELS[currentLevel].name;
+                document.getElementById('level-notification').classList.add('show');
+                setTimeout(() => document.getElementById('level-notification').classList.remove('show'), 2500);
+            }, 300);
+        }
+
+        // ==================== COLLISION ====================
+        function checkCollision(x, z) {
+            for (const o of obstacles) {
+                if (o.isExitDoor && (levelCleared || inCorridor)) continue;
+                if (x > o.x - o.w - 0.35 && x < o.x + o.w + 0.35 &&
+                    z > o.z - o.d - 0.35 && z < o.z + o.d + 0.35) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ==================== SPAWN HEALTH PICKUP ====================
+        function spawnHealthPickup() {
+            const pickup = new THREE.Mesh(
+                new THREE.BoxGeometry(0.4, 0.4, 0.4),
+                new THREE.MeshLambertMaterial({ color: 0x337733 })
+            );
+            
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 3 + Math.random() * 3;
+            pickup.position.set(
+                player.x + Math.cos(angle) * dist,
+                0.2,
+                player.z + Math.sin(angle) * dist
+            );
+            
+            scene.add(pickup);
+            healthPickups.push({ mesh: pickup, healAmount: 25 });
+        }
+
+        // ==================== GAME LOOP ====================
+        let footstepTime = 0;
+        
+        function gameLoop(time) {
+            animId = requestAnimationFrame(gameLoop);
+            
+            if (gameScreen !== 'game') return;
+            
+            const dt = Math.min((time - lastTime) / 1000, 0.05);
+            lastTime = time;
+            const now = performance.now();
+            
+            if (isReloading) {
+                reloadTime += dt;
+                const progress = Math.floor((reloadTime / reloadDuration) * 100);
+                document.getElementById('reload-indicator').textContent = `⟳ RELOADING... ${Math.min(progress, 100)}%`;
+                document.getElementById('reload-indicator').classList.add('show');
+                if (reloadTime >= reloadDuration) {
+                    ammo = maxAmmo;
+                    isReloading = false;
+                    reloadTime = 0;
+                    document.getElementById('reload-indicator').classList.remove('show');
+                }
+            }
+            
+            let speed = 5;
+            const isSprinting = keys['ShiftLeft'] || keys['ShiftRight'];
+            if (isSprinting) speed *= 1.5;
+            
+            const fwd = keys['KeyW'] || keys['ArrowUp'];
+            const back = keys['KeyS'] || keys['ArrowDown'];
+            const left = keys['KeyA'] || keys['ArrowLeft'];
+            const right = keys['KeyD'] || keys['ArrowRight'];
+            
+            const sin = Math.sin(player.yaw);
+            const cos = Math.cos(player.yaw);
+            
+            let dx = 0, dz = 0;
+            if (fwd) { dx -= sin; dz -= cos; }
+            if (back) { dx += sin; dz += cos; }
+            if (left) { dx -= cos; dz += sin; }
+            if (right) { dx += cos; dz -= sin; }
+            
+            let boundary;
+            if (inCorridor) {
+                boundary = corridorLength / 2;
+            } else {
+                boundary = LEVELS[currentLevel].size / 2;
+            }
+            
+            if (dx !== 0 || dz !== 0) {
+                const len = Math.sqrt(dx * dx + dz * dz);
+                dx = (dx / len) * speed * dt;
+                dz = (dz / len) * speed * dt;
+                
+                const newX = Math.max(-boundary + 0.5, Math.min(boundary - 0.5, player.x + dx));
+                if (!checkCollision(newX, player.z)) player.x = newX;
+                
+                const newZ = Math.max(-boundary + 0.5, Math.min(boundary - 0.5, player.z + dz));
+                if (!checkCollision(player.x, newZ)) player.z = newZ;
+                
+                const footstepInterval = isSprinting ? 0.25 : 0.4;
+                footstepTime += dt;
+                if (footstepTime > footstepInterval) {
+                    footstepTime = 0;
+                    playFootstep();
+                }
+            }
+            
+            if (keys['Space'] && player.onGround) {
+                player.vy = 6;
+                player.onGround = false;
+            }
+            player.vy -= 15 * dt;
+            player.y += player.vy * dt;
+            if (player.y < 1.6) { player.y = 1.6; player.vy = 0; player.onGround = true; }
+            
+            camera.position.set(player.x, player.y, player.z);
+            camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+            
+            weapon.position.y = -0.18 + ((fwd || back || left || right) ? Math.sin(time * 0.01) * 0.01 : 0);
+            weapon.rotation.x = (fwd || back || left || right) ? Math.sin(time * 0.008) * 0.01 : 0;
+            
+            if (khukuri) {
+                khukuri.position.y = -0.15 + ((fwd || back || left || right) ? Math.sin(time * 0.01) * 0.01 : 0);
+                khukuri.rotation.x = -0.2 + ((fwd || back || left || right) ? Math.sin(time * 0.008) * 0.01 : 0);
+            }
+            
+            if (inCorridor) {
+                const exitDist = Math.sqrt(Math.pow(player.x - exitDoorPos.x, 2) + Math.pow(player.z - exitDoorPos.z, 2));
+                if (exitDist < 2 && !transitioning) {
+                    enterNextLevel();
+                }
+            } else {
+                const doorDist = Math.sqrt(Math.pow(player.x - exitDoorPos.x, 2) + Math.pow(player.z - exitDoorPos.z, 2));
+                nearDoor = doorDist < 3;
+                
+                if (levelCleared && doorDist < 1.5 && !transitioning) {
+                    enterCorridor();
+                }
+            }
+            
+            for (let i = healthPickups.length - 1; i >= 0; i--) {
+                const pickup = healthPickups[i];
+                const dx = player.x - pickup.mesh.position.x;
+                const dz = player.z - pickup.mesh.position.z;
+                if (dx * dx + dz * dz < 1) {
+                    health = Math.min(maxHealth, health + pickup.healAmount);
+                    scene.remove(pickup.mesh);
+                    healthPickups.splice(i, 1);
+                    playHealthPickup();
+                    
+                    document.getElementById('health-pickup-indicator').classList.add('show');
+                    setTimeout(() => document.getElementById('health-pickup-indicator').classList.remove('show'), 2000);
+                }
+            }
+            
+            if (keys['MouseLeft'] && !khukuriEquipped && now - lastShot > 120 && ammo > 0 && !isReloading) {
+                const dirX = -Math.sin(player.yaw) * Math.cos(player.pitch);
+                const dirY = Math.sin(player.pitch);
+                const dirZ = -Math.cos(player.yaw) * Math.cos(player.pitch);
+                
+                const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshBasicMaterial({ color: 0xaa8800 }));
+                bullet.position.set(player.x + dirX, player.y + dirY, player.z + dirZ);
+                scene.add(bullet);
+                projectiles.push({ mesh: bullet, vx: dirX * 50, vy: dirY * 50, vz: dirZ * 50, damage: 22, isEnemy: false });
+                ammo--;
+                lastShot = now;
+                
+                document.getElementById('muzzle-flash').classList.add('show');
+                setTimeout(() => document.getElementById('muzzle-flash').classList.remove('show'), 40);
+                playAK47Shot();
+                
+                weapon.position.z = -0.35;
+                weapon.rotation.x = -0.05;
+            }
+            
+            if (keys['MouseLeft'] && khukuriEquipped && now - lastShot > 400) {
+                lastShot = now;
+                
+                khukuri.rotation.x = -0.8;
+                khukuri.position.z = -0.5;
+                
+                playSound(150, 0.1, 'sawtooth');
+                playSound(200, 0.08, 'square');
+                
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const e = enemies[i];
+                    const edx = player.x - e.mesh.position.x;
+                    const edz = player.z - e.mesh.position.z;
+                    const dist = Math.sqrt(edx * edx + edz * edz);
+                    
+                    if (dist < 2.5) {
+                        const angleToEnemy = Math.atan2(edz, edx);
+                        const playerAngle = player.yaw + Math.PI;
+                        const angleDiff = Math.abs(Math.atan2(Math.sin(angleToEnemy - playerAngle), Math.cos(angleToEnemy - playerAngle)));
+                        
+                        if (angleDiff < Math.PI / 2) {
+                            e.hp -= 45;
+                            playSound(100, 0.15, 'triangle');
+                            
+                            document.getElementById('damage-screen').style.background = 'radial-gradient(circle at 50% 50%, rgba(100,0,0,0.2) 0%, transparent 50%)';
+                            document.getElementById('damage-screen').classList.add('show');
+                            setTimeout(() => document.getElementById('damage-screen').classList.remove('show'), 80);
+                        }
+                    }
+                }
+            }
+            
+            if (keys['MouseLeft'] && !khukuriEquipped && ammo === 0 && !isReloading) {
+                startReload();
+            }
+            
+            weapon.position.z += (-0.45 - weapon.position.z) * 0.15;
+            weapon.rotation.x += (0.02 - weapon.rotation.x) * 0.15;
+            
+            if (khukuri) {
+                khukuri.position.z += (-0.35 - khukuri.position.z) * 0.12;
+                khukuri.rotation.x += (-0.2 - khukuri.rotation.x) * 0.12;
+            }
+            
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                const cfg = ENEMY_TYPES[e.type];
+                
+                const edx = player.x - e.mesh.position.x;
+                const edz = player.z - e.mesh.position.z;
+                const dist = Math.sqrt(edx * edx + edz * edz);
+                
+                let enemyMoved = false;
+                if (dist > 5) {
+                    e.mesh.position.x += (edx / dist) * e.speed * dt;
+                    e.mesh.position.z += (edz / dist) * e.speed * dt;
+                    enemyMoved = true;
+                } else if (dist < 3) {
+                    e.mesh.position.x -= (edx / dist) * e.speed * 0.5 * dt;
+                    e.mesh.position.z -= (edz / dist) * e.speed * 0.5 * dt;
+                    enemyMoved = true;
+                }
+                
+                if (enemyMoved && dist < 15) {
+                    if (!e.footstepTime) e.footstepTime = 0;
+                    const enemyFootstepInterval = 0.35 / (e.speed / 2);
+                    e.footstepTime += dt;
+                    if (e.footstepTime > enemyFootstepInterval) {
+                        e.footstepTime = 0;
+                        playEnemyFootstep(e.mesh.position.x, e.mesh.position.z);
+                    }
+                }
+                
+                e.mesh.lookAt(player.x, e.mesh.position.y, player.z);
+                
+                if (dist < 18 && dist > 2 && now - e.lastShot > e.shootInterval) {
+                    e.lastShot = now;
+                    
+                    const baseAngle = Math.atan2(edz, edx);
+                    const spread = (Math.random() - 0.5) * 1.0;
+                    const shootAngle = baseAngle + spread;
+                    
+                    const proj = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), new THREE.MeshBasicMaterial({ color: 0x883333 }));
+                    proj.position.set(e.mesh.position.x, 1.2, e.mesh.position.z);
+                    scene.add(proj);
+                    projectiles.push({
+                        mesh: proj,
+                        vx: Math.cos(shootAngle) * 18,
+                        vy: 0.05,
+                        vz: Math.sin(shootAngle) * 18,
+                        damage: e.damage,
+                        isEnemy: true
+                    });
+                    playEnemyShot();
+                }
+                
+                if (dist < 1.5 && now - (e.lastMelee || 0) > 1000) {
+                    e.lastMelee = now;
+                    health -= e.damage;
+                    if (health <= 0) {
+                        health = 0;
+                        document.exitPointerLock();
+                        gameScreen = 'over';
+                        if (score > highScore) { highScore = score; localStorage.setItem('gorkhali_10lv_high', String(highScore)); }
+                    }
+                    showDamageIndicator(Math.atan2(edz, edx) * 180 / Math.PI);
+                    playSound(150, 0.1);
+                    
+                    document.getElementById('damage-screen').style.background = 'radial-gradient(circle at 50% 50%, rgba(150,0,0,0.3) 0%, transparent 60%)';
+                    document.getElementById('damage-screen').classList.add('show');
+                    setTimeout(() => document.getElementById('damage-screen').classList.remove('show'), 100);
+                }
+                
+                if (e.hp <= 0) {
+                    score += cfg.points;
+                    scene.remove(e.mesh);
+                    enemies.splice(i, 1);
+                    playSound(120, 0.15);
+                }
+            }
+            
+            if (!inCorridor && enemies.length === 0 && !levelCleared) {
+                levelCleared = true;
+                playLevelComplete();
+                playDoorOpen();
+                if (exitDoor) exitDoor.position.y = 6;
+                
+                if (health < maxHealth) {
+                    spawnHealthPickup();
+                }
+            }
+            
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.mesh.position.x += p.vx * dt;
+                p.mesh.position.y += p.vy * dt;
+                p.mesh.position.z += p.vz * dt;
+                
+                if (p.isEnemy) {
+                    const dx = player.x - p.mesh.position.x;
+                    const dy = player.y - p.mesh.position.y;
+                    const dz = player.z - p.mesh.position.z;
+                    if (dx * dx + dy * dy + dz * dz < 0.3) {
+                        health -= p.damage;
+                        showDamageIndicator(Math.atan2(dz, dx) * 180 / Math.PI);
+                        if (health <= 0) {
+                            health = 0;
+                            document.exitPointerLock();
+                            gameScreen = 'over';
+                            if (score > highScore) { highScore = score; localStorage.setItem('gorkhali_10lv_high', String(highScore)); }
+                        }
+                        scene.remove(p.mesh);
+                        projectiles.splice(i, 1);
+                        
+                        document.getElementById('damage-screen').style.background = 'radial-gradient(circle at 50% 50%, rgba(150,0,0,0.2) 0%, transparent 60%)';
+                        document.getElementById('damage-screen').classList.add('show');
+                        setTimeout(() => document.getElementById('damage-screen').classList.remove('show'), 100);
+                        continue;
+                    }
+                } else {
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        const dx = e.mesh.position.x - p.mesh.position.x;
+                        const dz = e.mesh.position.z - p.mesh.position.z;
+                        if (dx * dx + dz * dz < 0.35) {
+                            e.hp -= p.damage;
+                            scene.remove(p.mesh);
+                            projectiles.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+                
+                if (Math.abs(p.mesh.position.x) > 50 || Math.abs(p.mesh.position.z) > 50 || p.mesh.position.y < 0) {
+                    scene.remove(p.mesh);
+                    projectiles.splice(i, 1);
+                }
+            }
+            
+            if (health <= 30) {
+                document.getElementById('low-health-overlay').classList.add('warning');
+            } else {
+                document.getElementById('low-health-overlay').classList.remove('warning');
+            }
+            
+            renderer.render(scene, camera);
+            updateUI();
+        }
+
+        function showDamageIndicator(angle) {
+            const indicator = document.getElementById('damage-indicator');
+            indicator.style.transform = `translate(-50%, -50%) rotate(${angle + 180}deg)`;
+            indicator.classList.add('show');
+            setTimeout(() => indicator.classList.remove('show'), 200);
+        }
+
+        function updateUI() {
+            document.getElementById('health-fill').style.width = `${health}%`;
+            document.getElementById('health-text').textContent = `${Math.ceil(health)}/${maxHealth}`;
+            
+            const healthFill = document.getElementById('health-fill');
+            if (health <= 30) {
+                healthFill.style.background = '#882222';
+            } else if (health <= 50) {
+                healthFill.style.background = '#885500';
+            } else {
+                healthFill.style.background = '#884444';
+            }
+            
+            document.getElementById('ammo-fill').style.width = `${(ammo / maxAmmo) * 100}%`;
+            document.getElementById('ammo-text').textContent = `${ammo}/${maxAmmo}`;
+            document.getElementById('level-display').textContent = `LEVEL ${currentLevel + 1}`;
+            document.getElementById('score-display').textContent = score.toLocaleString();
+            document.getElementById('room-name').textContent = inCorridor ? 'CORRIDOR' : LEVELS[currentLevel].name;
+            
+            const weaponIndicator = document.getElementById('weapon-indicator');
+            if (khukuriEquipped) {
+                weaponIndicator.textContent = '⚔️ KHUKURI';
+                weaponIndicator.style.color = '#6688aa';
+            } else {
+                weaponIndicator.textContent = '🔫 AK-47';
+                weaponIndicator.style.color = '#aa6644';
+            }
+            
+            document.getElementById('enemies-counter').textContent = inCorridor ? '' : `Enemies: ${enemies.length}`;
+            
+            document.getElementById('room-cleared').classList.toggle('show', levelCleared && !nearDoor && !inCorridor);
+            document.getElementById('door-prompt').classList.toggle('show', levelCleared && nearDoor && !inCorridor);
+            
+            for (let i = 0; i < 4; i++) {
+                const dot = document.getElementById(`level-dot-${i}`);
+                dot.classList.remove('completed', 'current');
+                if (i < currentLevel) dot.classList.add('completed');
+                else if (i === currentLevel) dot.classList.add('current');
+            }
+            
+            document.getElementById('menu').style.display = gameScreen === 'menu' ? 'flex' : 'none';
+            document.getElementById('pause').style.display = gameScreen === 'pause' ? 'flex' : 'none';
+            document.getElementById('game-over').style.display = gameScreen === 'over' ? 'flex' : 'none';
+            document.getElementById('victory').style.display = gameScreen === 'victory' ? 'flex' : 'none';
+            document.getElementById('hud-top-left').style.display = gameScreen === 'game' ? 'block' : 'none';
+            document.getElementById('hud-top-right').style.display = gameScreen === 'game' ? 'block' : 'none';
+            document.getElementById('crosshair').style.display = gameScreen === 'game' ? 'block' : 'none';
+            
+            if (gameScreen === 'over') {
+                document.getElementById('final-level').textContent = currentLevel + 1;
+                document.getElementById('final-score').textContent = score.toLocaleString();
+            }
+            if (gameScreen === 'victory') {
+                document.getElementById('victory-score').textContent = score.toLocaleString();
+            }
+        }
+
+        function startGame() {
+            currentLevel = 0;
+            score = 0;
+            health = 100;
+            ammo = maxAmmo;
+            isReloading = false;
+            inCorridor = false;
+            levelCleared = false;
+            nearDoor = false;
+            healthPickups = [];
+            khukuriEquipped = false;
+            if (weapon) weapon.visible = true;
+            if (khukuri) khukuri.visible = false;
+            buildLevel(0);
+            gameScreen = 'game';
+            document.getElementById('level-number').textContent = 'LEVEL 1';
+            document.getElementById('level-name').textContent = LEVELS[0].name;
+            document.getElementById('level-notification').classList.add('show');
+            setTimeout(() => document.getElementById('level-notification').classList.remove('show'), 2500);
+            renderer.domElement.requestPointerLock();
+            updateUI();
+        }
+
+        function resumeGame() {
+            gameScreen = 'game';
+            renderer.domElement.requestPointerLock();
+            updateUI();
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('resume-btn').addEventListener('click', resumeGame);
+        document.getElementById('retry-btn').addEventListener('click', startGame);
+        document.getElementById('victory-retry-btn').addEventListener('click', startGame);
+        
+        loadRealSounds();
+        initScene();
+        animId = requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
